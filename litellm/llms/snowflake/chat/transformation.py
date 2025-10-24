@@ -1,5 +1,5 @@
 """
-Support for Snowflake REST API 
+Support for Snowflake REST API
 """
 
 from typing import TYPE_CHECKING, Any, List, Optional, Tuple
@@ -11,6 +11,7 @@ from litellm.types.llms.openai import AllMessageValues
 from litellm.types.utils import ModelResponse
 
 from ...openai_like.chat.transformation import OpenAIGPTConfig
+from ..common_utils import SnowflakeBase
 
 if TYPE_CHECKING:
     from litellm.litellm_core_utils.litellm_logging import Logging as _LiteLLMLoggingObj
@@ -20,7 +21,7 @@ else:
     LiteLLMLoggingObj = Any
 
 
-class SnowflakeConfig(OpenAIGPTConfig):
+class SnowflakeConfig(SnowflakeBase, OpenAIGPTConfig):
     """
     source: https://docs.snowflake.com/en/sql-reference/functions/complete-snowflake-cortex
     """
@@ -105,12 +106,19 @@ class SnowflakeConfig(OpenAIGPTConfig):
             "Content-Type": "application/json",
             "Accept": "application/json",
             "Authorization": "Bearer " + <JWT>,
-            "X-Snowflake-Authorization-Token-Type": "KEYPAIR_JWT"
+            "X-Snowflake-Authorization-Token-Type": "KEYPAIR_JWT",
+            "User-Agent": "<partner>/<product>-<version>" (optional, for ISV partner attribution)
         }
         """
 
         if api_key is None:
             raise ValueError("Missing Snowflake JWT key")
+
+        # Get partner attribution User-Agent string if configured
+        user_agent = self._configure_snowflake_partner_attribution(
+            litellm_params=litellm_params,
+            optional_params=optional_params,
+        )
 
         headers.update(
             {
@@ -120,6 +128,11 @@ class SnowflakeConfig(OpenAIGPTConfig):
                 "X-Snowflake-Authorization-Token-Type": "KEYPAIR_JWT",
             }
         )
+
+        # Add User-Agent header for partner attribution if configured
+        if user_agent:
+            headers["User-Agent"] = user_agent
+
         return headers
 
     def _get_openai_compatible_provider_info(
